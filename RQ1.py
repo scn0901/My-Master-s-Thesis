@@ -61,15 +61,32 @@ START_DATE = pd.Timestamp('2024-08-01')
 # %%
 # === 1. Read data and validate columns ===
 
-
 id_if_cib = pd.read_csv('../../dataset/id_if_cib.csv', index_col='id')
 id_basic_feature_engineering = pd.read_csv('../../dataset/id_basic_feature_engineering.csv', index_col='id')
 id_time_feature_engineering = pd.read_csv('../../dataset/id_time_feature_engineering.csv', index_col='id')
 id_user_feature_engineering_sample = pd.read_csv('../../dataset/id_user_feature_engineering_sample.csv', index_col='id')
+id_user_feature_engineering_cib = pd.read_csv('../../dataset/id_user_feature_engineering_cib.csv', index_col='id')
 id_traces = pd.read_csv('../../dataset/id_traces.csv', index_col='id')
-data = pd.concat([id_if_cib, id_basic_feature_engineering, id_time_feature_engineering, id_traces], axis=1, join='inner').copy()
-data_cib = data[data['if_cib']==1].copy()
-data_sample = pd.concat([data, id_user_feature_engineering_sample], axis=1, join='inner').copy()
+
+data = pd.concat(
+    [id_if_cib, id_basic_feature_engineering, id_time_feature_engineering, id_traces],
+    axis=1,
+    join='inner'
+).copy()
+
+data_cib = data.loc[data['if_cib'] == 1].copy()
+
+data_sample = pd.concat(
+    [data, id_user_feature_engineering_sample],
+    axis=1,
+    join='inner'
+).copy()
+
+data_cib_with_user = pd.concat(
+    [data_cib, id_user_feature_engineering_cib],
+    axis=1,
+    join='inner'
+).copy()
 
 
 common_required_cols = [
@@ -122,6 +139,11 @@ missing_cols = [col for col in common_required_cols + sample_extra_required_cols
 if missing_cols:
     raise KeyError(f'Missing required columns in data_sample: {missing_cols}')
 
+missing_cols = [col for col in common_required_cols + sample_extra_required_cols if col not in data_cib_with_user.columns]
+if missing_cols:
+    raise KeyError(f'Missing required columns in data_cib_with_user: {missing_cols}')
+
+
 binary_cols_common = [
     'if_cib',
     'has_hashtag_dem',
@@ -173,17 +195,22 @@ for col in numeric_cols_common:
     data[col] = pd.to_numeric(data[col], errors='coerce')
     data_cib[col] = pd.to_numeric(data_cib[col], errors='coerce')
     data_sample[col] = pd.to_numeric(data_sample[col], errors='coerce')
+    data_cib_with_user[col] = pd.to_numeric(data_cib_with_user[col], errors='coerce')
 
 for col in numeric_cols_sample_extra:
     data_sample[col] = pd.to_numeric(data_sample[col], errors='coerce')
+    data_cib_with_user[col] = pd.to_numeric(data_cib_with_user[col], errors='coerce')
 
 for col in binary_cols_common:
     data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0).astype(int)
     data_cib[col] = pd.to_numeric(data_cib[col], errors='coerce').fillna(0).astype(int)
     data_sample[col] = pd.to_numeric(data_sample[col], errors='coerce').fillna(0).astype(int)
+    data_cib_with_user[col] = pd.to_numeric(data_cib_with_user[col], errors='coerce').fillna(0).astype(int)
 
 for col in binary_cols_sample_extra:
     data_sample[col] = pd.to_numeric(data_sample[col], errors='coerce').fillna(0).astype(int)
+    data_cib_with_user[col] = pd.to_numeric(data_cib_with_user[col], errors='coerce').fillna(0).astype(int)
+
 
 content_numeric_cols = [
     'hashtag_num',
@@ -231,44 +258,57 @@ trace_cols = [
 ]
 
 TRACE_LABELS_CN = {
-    'co_hashtagseq': '话题标签序列一致',
-    'co_domain': '外链域名共现',
-    'text_similarity': '文本内容相似',
-    'video_similarity': '视频内容相似',
-    'time_synchronization': '发布时间同步'
+    'co_hashtagseq': '属于话题标签序列一致',
+    'co_domain': '属于外链域名共现',
+    'text_similarity': '属于语音内容相似',
+    'video_similarity': '属于视频内容相似',
+    'time_synchronization': '属于发帖时间同步'
 }
 
 VAR_LABELS_CN = {
-    'if_cib': '是否CIB',
+    'if_cib': '是否为 CIB',
+
+    # 内容特征
     'hashtag_num': '话题标签数量',
-    'hashtag_rate_outside_top_500': 'Top500外话题标签占比',
-    'has_hashtag_dem': '含民主党相关标签',
-    'has_hashtag_rep': '含共和党相关标签',
-    'has_hashtag_traffic': '含引流型标签',
-    'domain_num': '外链域名数量',
-    'domain_rate_outside_top_100': 'Top100外域名占比',
-    'has_domain_platform': '含平台型域名',
-    'has_domain_politics_civic': '含政治/公共事务域名',
-    'has_domain_news_media': '含新闻媒体域名',
-    'has_domain_commerce': '含商业域名',
-    'has_domain_fundraising': '含筹款域名',
-    'is_duet': 'Duet视频',
-    'is_stitch': 'Stitch视频',
-    'is_reply': 'Reply视频',
-    'publish_hour_edt': '发布时间（EDT小时）',
-    'publish_weekday_edt': '发布时间（EDT星期）',
-    'days_since_start': '距2024-08-01天数',
-    'query_failed': '创作者信息查询失败',
-    'if_username_autogen': '用户名疑似自动生成',
-    'is_verified': '创作者账号已认证',
-    'if_has_bio': '创作者有简介',
-    'log1p_video_count': 'ln(1+历史发帖量)',
-    'log1p_follower_count': 'ln(1+粉丝数)',
-    'log1p_following_count': 'ln(1+关注数)',
-    'log1p_follower_following_rate': 'ln(1+粉丝/关注比)',
-    'if_username_has_political_keyword': '用户名含政治关键词',
-    'if_display_name_has_political_keyword': '显示名含政治关键词',
-    'if_bio_has_political_keyword': '简介含政治关键词'
+    'hashtag_rate_outside_top_500': '非高频话题标签比例',
+    'has_hashtag_dem': '包含民主党相关标签',
+    'has_hashtag_rep': '包含共和党相关标签',
+    'has_hashtag_traffic': '包含泛流量导向标签',
+    'domain_num': '外部链接域名数量',
+    'domain_rate_outside_top_100': '非高频外部域名比例',
+    'has_domain_platform': '包含平台类域名',
+    'has_domain_politics_civic': '包含政治/公民参与类域名',
+    'has_domain_news_media': '包含新闻媒体类域名',
+    'has_domain_commerce': '包含商业类域名',
+    'has_domain_fundraising': '包含筹款类域名',
+    'is_duet': '为合拍视频',
+    'is_stitch': '为拼接视频',
+    'is_reply': '为回应视频',
+
+    # 时间特征
+    'publish_hour_edt': '发布时间小时（美国东部夏令时）',
+    'publish_weekday_edt': '发布时间星期（美国东部夏令时）',
+    'days_since_start': '距观察窗口起始天数',
+
+    # 创作者特征
+    'query_failed': '用户信息查询失败',
+    'if_username_autogen': '用户名自动生成',
+    'is_verified': '为认证账号',
+    'if_has_bio': '填写个人简介',
+    'log1p_video_count': '对数变换后的账号发帖量',
+    'log1p_follower_count': '对数变换后的粉丝数',
+    'log1p_following_count': '对数变换后的关注数',
+    'log1p_follower_following_rate': '对数变换后的粉关比',
+    'if_username_has_political_keyword': '用户名包含政治关键词',
+    'if_display_name_has_political_keyword': '显示名包含政治关键词',
+    'if_bio_has_political_keyword': '个人简介包含政治关键词',
+
+    # 协调轨迹特征
+    'co_hashtagseq': '属于话题标签序列一致',
+    'co_domain': '属于外链域名共现',
+    'text_similarity': '属于语音内容相似',
+    'video_similarity': '属于视频内容相似',
+    'time_synchronization': '属于发帖时间同步'
 }
 
 GROUP_LABELS_CN = {
@@ -289,6 +329,7 @@ WEEKDAY_LABELS_CN = {
 print(f'data shape: {data.shape}')
 print(f'data_cib shape: {data_cib.shape}')
 print(f'data_sample shape: {data_sample.shape}')
+print(f'data_cib_with_user shape: {data_cib_with_user.shape}')
 print(f'Result directory: {RESULT_DIR}')
 
 # %%
@@ -901,7 +942,7 @@ weekday_chi2, weekday_p, _, _ = stats.chi2_contingency(weekday_table.to_numpy())
 table_43_publish_tests = pd.DataFrame([
     {
         'dimension': 'publish_hour_edt',
-        'dimension_label_cn': '发布时间（EDT小时）',
+        'dimension_label_cn': VAR_LABELS_CN['publish_hour_edt'],
         'method': 'chi2',
         'statistic': hour_chi2,
         'p_value': hour_p,
@@ -909,7 +950,7 @@ table_43_publish_tests = pd.DataFrame([
     },
     {
         'dimension': 'publish_weekday_edt',
-        'dimension_label_cn': '发布时间（EDT星期）',
+        'dimension_label_cn': VAR_LABELS_CN['publish_weekday_edt'],
         'method': 'chi2',
         'statistic': weekday_chi2,
         'p_value': weekday_p,
@@ -917,7 +958,7 @@ table_43_publish_tests = pd.DataFrame([
     },
     {
         'dimension': 'days_since_start',
-        'dimension_label_cn': '距2024-08-01天数',
+        'dimension_label_cn': VAR_LABELS_CN['days_since_start'],
         'method': 'mannwhitney',
         'statistic': table_43_days_tests.loc[0, 'u_stat'],
         'p_value': table_43_days_tests.loc[0, 'p_value'],
@@ -1184,12 +1225,14 @@ save_figure(fig, 'fig_44_creator_feature_comparison.png')
 
 # %%
 # %%
+# %%
 # === 10. 4.5 Trace profile within CIB: prevalence and overlap ===
 
-if 'if_cib' in data_cib.columns:
-    cib_full = data_cib.loc[data_cib['if_cib'] == 1].copy()
-else:
-    cib_full = data_cib.copy()
+# 4.5.1 CIB内部轨迹出现频率、组合与重叠：使用全量CIB视频
+cib_full = data_cib.copy()
+
+if cib_full.empty:
+    raise ValueError('No CIB observations found in data_cib.')
 
 rows = []
 for trace in trace_cols:
@@ -1210,10 +1253,12 @@ combo_series = cib_full[trace_cols].apply(
 )
 
 table_45_trace_combinations = (
-    combo_series.value_counts(dropna=False)
+    combo_series
+    .value_counts(dropna=False)
     .rename_axis('trace_combination_cn')
     .reset_index(name='n')
 )
+
 table_45_trace_combinations['share_in_cib'] = table_45_trace_combinations['n'] / len(cib_full)
 table_45_trace_combinations = table_45_trace_combinations.round(6)
 save_csv(table_45_trace_combinations, 'table_45_trace_combinations.csv', index=False)
@@ -1230,41 +1275,245 @@ for trace_i in trace_cols:
         overlap_count.loc[trace_i, trace_j] = intersection
         overlap_jaccard.loc[trace_i, trace_j] = intersection / union if union > 0 else np.nan
 
-overlap_count.index = [TRACE_LABELS_CN[c] for c in overlap_count.index]
-overlap_count.columns = [TRACE_LABELS_CN[c] for c in overlap_count.columns]
-overlap_jaccard.index = [TRACE_LABELS_CN[c] for c in overlap_jaccard.index]
-overlap_jaccard.columns = [TRACE_LABELS_CN[c] for c in overlap_jaccard.columns]
+overlap_count.index = [TRACE_LABELS_CN[col] for col in overlap_count.index]
+overlap_count.columns = [TRACE_LABELS_CN[col] for col in overlap_count.columns]
+overlap_jaccard.index = [TRACE_LABELS_CN[col] for col in overlap_jaccard.index]
+overlap_jaccard.columns = [TRACE_LABELS_CN[col] for col in overlap_jaccard.columns]
 
 save_csv(overlap_count.round(6), 'table_45_trace_overlap_count.csv', index=True)
 save_csv(overlap_jaccard.round(6), 'table_45_trace_overlap_jaccard.csv', index=True)
 
-trace_profile_vars = [
+
+# 4.5.2 不同轨迹阳性子组的关键特征画像：使用query_failed=0的CIB样本
+# 说明：由于本节纳入创作者特征，需排除用户信息查询失败的视频，以避免用户特征缺失造成偏差。
+cib_profile = data_cib_with_user.loc[data_cib_with_user['query_failed'] == 0].copy()
+
+if cib_profile.empty:
+    raise ValueError('No query-success CIB observations found in data_cib_with_user.')
+
+table_45_trace_profile_sample_overview = pd.DataFrame([
+    {
+        'subset': 'all_cib',
+        'n_total': len(data_cib_with_user),
+        'n_query_failed': int((data_cib_with_user['query_failed'] == 1).sum()),
+        'n_query_success': int((data_cib_with_user['query_failed'] == 0).sum()),
+        'share_query_failed': data_cib_with_user['query_failed'].mean()
+    },
+    {
+        'subset': 'query_success_cib_for_trace_profile',
+        'n_total': len(cib_profile),
+        'n_query_failed': int((cib_profile['query_failed'] == 1).sum()),
+        'n_query_success': int((cib_profile['query_failed'] == 0).sum()),
+        'share_query_failed': cib_profile['query_failed'].mean()
+    }
+]).round(6)
+
+save_csv(table_45_trace_profile_sample_overview, 'table_45_trace_profile_sample_overview.csv', index=False)
+
+
+trace_profile_numeric_vars = [
     'hashtag_num',
-    'hashtag_rate_outside_top_500',
     'domain_num',
-    'domain_rate_outside_top_100',
+    'days_since_start',
+    'log1p_follower_count'
+]
+
+trace_profile_binary_vars = [
+    'has_hashtag_dem',
+    'has_hashtag_rep',
     'has_hashtag_traffic',
-    'has_domain_news_media',
-    'has_domain_platform',
-    'is_reply',
-    'publish_hour_edt',
-    'days_since_start'
+    'has_domain_politics_civic',
+    'if_username_autogen'
 ]
 
-# Remove variables with no variation within CIB
-trace_profile_vars = [
-    var for var in trace_profile_vars
-    if cib_full[var].nunique(dropna=False) > 1
+trace_profile_vars = trace_profile_numeric_vars + trace_profile_binary_vars
+
+# Remove variables with no variation within the query-success CIB profile sample
+trace_profile_numeric_vars = [
+    var for var in trace_profile_numeric_vars
+    if var in cib_profile.columns and cib_profile[var].nunique(dropna=False) > 1
 ]
 
-table_45_trace_profile_summary, table_45_trace_profile_tests = trace_feature_test(cib_full, trace_profile_vars)
+trace_profile_binary_vars = [
+    var for var in trace_profile_binary_vars
+    if var in cib_profile.columns and cib_profile[var].nunique(dropna=False) > 1
+]
+
+trace_profile_vars = trace_profile_numeric_vars + trace_profile_binary_vars
+
+
+# A. 轨迹阳性子组的描述统计，形式上对应RQ2中的“trace-positive subgroup summary”
+summary_rows = []
+
+for trace in trace_cols:
+    for var in trace_profile_vars:
+        s = cib_profile.loc[cib_profile[trace] == 1, var]
+        summary = summarize_series(s)
+
+        if var in trace_profile_binary_vars:
+            positive_n = int(pd.to_numeric(s, errors='coerce').fillna(0).sum())
+            share_positive = positive_n / summary['n'] if summary['n'] > 0 else np.nan
+        else:
+            positive_n = np.nan
+            share_positive = np.nan
+
+        summary_rows.append({
+            'trace': trace,
+            'trace_label_cn': TRACE_LABELS_CN[trace],
+            'feature': var,
+            'feature_label_cn': VAR_LABELS_CN[var],
+            'feature_type': 'binary' if var in trace_profile_binary_vars else 'numeric',
+            'n_trace_positive': summary['n'],
+            'missing_n': summary['missing_n'],
+            'positive_n': positive_n,
+            'share_positive': share_positive,
+            'mean': summary['mean'],
+            'std': summary['std'],
+            'min': summary['min'],
+            'q1': summary['q1'],
+            'median': summary['median'],
+            'q3': summary['q3'],
+            'max': summary['max']
+        })
+
+table_45_trace_key_feature_summary = pd.DataFrame(summary_rows).round(6)
+save_csv(table_45_trace_key_feature_summary, 'table_45_trace_key_feature_summary.csv', index=False)
+
+
+# B. 轨迹阳性 vs 轨迹阴性的统计检验，形式上对应RQ2中的“trace-positive vs trace-negative tests”
+test_rows = []
+profile_summary_rows = []
+
+for trace in trace_cols:
+    mask_pos = cib_profile[trace] == 1
+    mask_neg = cib_profile[trace] == 0
+
+    for var in trace_profile_vars:
+        s_pos = cib_profile.loc[mask_pos, var]
+        s_neg = cib_profile.loc[mask_neg, var]
+
+        sum_pos = summarize_series(s_pos)
+        sum_neg = summarize_series(s_neg)
+
+        mean_diff = np.nan
+        median_diff = np.nan
+        if not pd.isna(sum_pos['mean']) and not pd.isna(sum_neg['mean']):
+            mean_diff = sum_pos['mean'] - sum_neg['mean']
+        if not pd.isna(sum_pos['median']) and not pd.isna(sum_neg['median']):
+            median_diff = sum_pos['median'] - sum_neg['median']
+
+        if var in trace_profile_binary_vars:
+            test_df_temp = cib_profile[[trace, var]].rename(columns={trace: 'trace_flag'})
+            test_out = binary_group_test(test_df_temp, 'trace_flag', var)
+
+            effect_size = test_out['cramers_v']
+            if not pd.isna(effect_size) and not pd.isna(mean_diff):
+                effect_size = np.sign(mean_diff) * effect_size
+
+            direction = 'no difference'
+            if not pd.isna(mean_diff):
+                if mean_diff > 0:
+                    direction = 'Trace-positive higher'
+                elif mean_diff < 0:
+                    direction = 'Trace-negative higher'
+
+            test_rows.append({
+                'trace': trace,
+                'trace_label_cn': TRACE_LABELS_CN[trace],
+                'feature': var,
+                'feature_label_cn': VAR_LABELS_CN[var],
+                'feature_type': 'binary',
+                'n_trace_positive': sum_pos['n'],
+                'n_trace_negative': sum_neg['n'],
+                'mean_trace_positive': sum_pos['mean'],
+                'mean_trace_negative': sum_neg['mean'],
+                'median_trace_positive': sum_pos['median'],
+                'median_trace_negative': sum_neg['median'],
+                'mean_diff_positive_minus_negative': mean_diff,
+                'median_diff_positive_minus_negative': median_diff,
+                'u_stat': np.nan,
+                'rank_biserial': np.nan,
+                'ks_stat': np.nan,
+                'ks_p_value': np.nan,
+                'method': test_out['method'],
+                'chi2_stat': test_out['chi2_stat'],
+                'cramers_v': test_out['cramers_v'],
+                'odds_ratio': test_out['odds_ratio'],
+                'p_value': test_out['p_value'],
+                'effect_size_for_heatmap': effect_size,
+                'effect_size_label': 'signed_cramers_v',
+                'direction': direction
+            })
+
+        else:
+            test_out = mannwhitney_summary(s_pos, s_neg)
+
+            direction = 'no difference'
+            if not pd.isna(test_out['rank_biserial']):
+                if test_out['rank_biserial'] > 0:
+                    direction = 'Trace-positive higher'
+                elif test_out['rank_biserial'] < 0:
+                    direction = 'Trace-negative higher'
+
+            test_rows.append({
+                'trace': trace,
+                'trace_label_cn': TRACE_LABELS_CN[trace],
+                'feature': var,
+                'feature_label_cn': VAR_LABELS_CN[var],
+                'feature_type': 'numeric',
+                'n_trace_positive': sum_pos['n'],
+                'n_trace_negative': sum_neg['n'],
+                'mean_trace_positive': sum_pos['mean'],
+                'mean_trace_negative': sum_neg['mean'],
+                'median_trace_positive': sum_pos['median'],
+                'median_trace_negative': sum_neg['median'],
+                'mean_diff_positive_minus_negative': mean_diff,
+                'median_diff_positive_minus_negative': median_diff,
+                'u_stat': test_out['u_stat'],
+                'rank_biserial': test_out['rank_biserial'],
+                'ks_stat': np.nan,
+                'ks_p_value': np.nan,
+                'method': 'mannwhitney',
+                'chi2_stat': np.nan,
+                'cramers_v': np.nan,
+                'odds_ratio': np.nan,
+                'p_value': test_out['p_value'],
+                'effect_size_for_heatmap': test_out['rank_biserial'],
+                'effect_size_label': 'rank_biserial',
+                'direction': direction
+            })
+
+        profile_summary_rows.append({
+            'trace': trace,
+            'trace_label_cn': TRACE_LABELS_CN[trace],
+            'feature': var,
+            'feature_label_cn': VAR_LABELS_CN[var],
+            'feature_type': 'binary' if var in trace_profile_binary_vars else 'numeric',
+            'trace_positive_mean_or_share': sum_pos['mean'],
+            'trace_negative_mean_or_share': sum_neg['mean'],
+            'difference_positive_minus_negative': mean_diff
+        })
+
+table_45_trace_profile_summary = pd.DataFrame(profile_summary_rows).round(6)
 save_csv(table_45_trace_profile_summary, 'table_45_trace_profile_summary.csv', index=False)
+
+table_45_trace_profile_tests = pd.DataFrame(test_rows)
+table_45_trace_profile_tests['p_value_bh'] = p_adjust_bh(table_45_trace_profile_tests['p_value'].to_numpy())
+table_45_trace_profile_tests['significance'] = table_45_trace_profile_tests['p_value_bh'].apply(significance_star)
+table_45_trace_profile_tests = table_45_trace_profile_tests.round(6)
+
 save_csv(table_45_trace_profile_tests, 'table_45_trace_profile_tests.csv', index=False)
+
+table_45_trace_profile_tests[
+    ['trace', 'feature', 'feature_type', 'mean_diff_positive_minus_negative',
+     'effect_size_for_heatmap', 'p_value_bh', 'direction']
+].head(12)
 
 
 # %%
 # === 11. 4.5 Trace profile within CIB: plots ===
 
+# A. 轨迹重叠热力图：仍使用全量CIB样本
 fig, ax = plt.subplots(figsize=(7.2, 6.2))
 
 sns.heatmap(
@@ -1280,7 +1529,7 @@ sns.heatmap(
     ax=ax
 )
 
-ax.set_title('CIB内部各协调轨迹的重叠程度')
+ax.set_title('CIB样本中各协调轨迹的重叠程度')
 ax.set_xlabel('协调轨迹')
 ax.set_ylabel('协调轨迹')
 
@@ -1288,56 +1537,71 @@ fig.tight_layout()
 save_figure(fig, 'fig_45_trace_overlap_heatmap.png')
 
 
-heatmap_df = (
-    table_45_trace_profile_summary
-    .pivot(index='trace_label_cn', columns='variable_label_cn', values='trace_positive_mean_or_share')
+# B. 关键特征效应量热力图：形式上对齐RQ2中的轨迹效应量热力图
+effect_heatmap = (
+    table_45_trace_profile_tests
+    .loc[:, ['trace_label_cn', 'feature_label_cn', 'effect_size_for_heatmap']]
+    .pivot(index='trace_label_cn', columns='feature_label_cn', values='effect_size_for_heatmap')
+)
+
+p_heatmap = (
+    table_45_trace_profile_tests
+    .loc[:, ['trace_label_cn', 'feature_label_cn', 'p_value_bh']]
+    .pivot(index='trace_label_cn', columns='feature_label_cn', values='p_value_bh')
 )
 
 trace_order_cn = [TRACE_LABELS_CN[col] for col in trace_cols]
 feature_order_cn = [VAR_LABELS_CN[col] for col in trace_profile_vars]
 
-heatmap_df = heatmap_df.reindex(index=trace_order_cn, columns=feature_order_cn)
+effect_heatmap = effect_heatmap.reindex(index=trace_order_cn, columns=feature_order_cn)
+p_heatmap = p_heatmap.reindex(index=trace_order_cn, columns=feature_order_cn)
 
-annot_df = heatmap_df.copy().astype(object)
-for i in range(heatmap_df.shape[0]):
-    for j in range(heatmap_df.shape[1]):
-        value = heatmap_df.iloc[i, j]
+annot = effect_heatmap.copy().astype(object)
+for i in range(effect_heatmap.shape[0]):
+    for j in range(effect_heatmap.shape[1]):
+        value = effect_heatmap.iloc[i, j]
+        pval = p_heatmap.iloc[i, j]
         if pd.isna(value):
-            annot_df.iloc[i, j] = ''
+            annot.iloc[i, j] = ''
         else:
-            annot_df.iloc[i, j] = f'{value:.2f}'
+            annot.iloc[i, j] = f'{value:.2f}{significance_star(pval)}'
 
-fig, ax = plt.subplots(figsize=(12, 5.8))
+fig, ax = plt.subplots(figsize=(13.5, 5.8))
 
 sns.heatmap(
-    heatmap_df,
-    annot=annot_df,
+    effect_heatmap,
+    annot=annot,
     fmt='',
-    cmap='Blues',
+    cmap='coolwarm',
+    center=0,
+    vmin=-1,
+    vmax=1,
     linewidths=0.5,
-    cbar_kws={'label': '均值 / 占比'},
+    cbar_kws={'label': '方向化效应量'},
     ax=ax
 )
 
-ax.set_title('不同协调轨迹阳性子组的特征画像（仅CIB内部）')
-ax.set_xlabel('特征')
+ax.set_title('不同协调轨迹对应的关键特征差异（仅在CIB内部比较）')
+ax.set_xlabel('关键特征')
 ax.set_ylabel('协调轨迹')
 ax.tick_params(axis='x', rotation=25)
 
 fig.tight_layout()
-save_figure(fig, 'fig_45_trace_profile_heatmap.png')
+save_figure(fig, 'fig_45_trace_feature_effect_heatmap.png')
 
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+# C. 数值型关键特征箱线图：轨迹阳性子组可重叠
+fig, axes = plt.subplots(2, 2, figsize=(17, 9.5))
+axes = axes.flat
 
-trace_plot_vars = [var for var in ['hashtag_num', 'domain_num', 'days_since_start'] if var in trace_profile_vars]
-
-for ax, var in zip(axes, trace_plot_vars):
+for ax, var in zip(axes, trace_profile_numeric_vars):
     parts = []
+
     for trace in trace_cols:
-        part = cib_full.loc[cib_full[trace] == 1, [var]].dropna().copy()
+        part = cib_profile.loc[cib_profile[trace] == 1, [var]].dropna().copy()
         part['trace_label_cn'] = TRACE_LABELS_CN[trace]
         parts.append(part)
+
     plot_df = pd.concat(parts, axis=0, ignore_index=True)
 
     sns.boxplot(
@@ -1351,26 +1615,90 @@ for ax, var in zip(axes, trace_plot_vars):
         ax=ax
     )
 
-    ax.set_title(f'{VAR_LABELS_CN[var]}在不同轨迹阳性子组中的分布')
+    ax.set_title(f'{VAR_LABELS_CN[var]}在不同协调轨迹阳性子组中的分布')
     ax.set_xlabel('')
     ax.set_ylabel(VAR_LABELS_CN[var])
     ax.tick_params(axis='x', rotation=18)
     sns.despine(ax=ax)
 
-# Hide unused axes if needed
-for ax in axes[len(trace_plot_vars):]:
+for ax in axes[len(trace_profile_numeric_vars):]:
     ax.axis('off')
 
-fig.suptitle('不同协调轨迹对应的关键特征差异（轨迹子组可重叠）', y=1.03, fontsize=15)
+fig.suptitle('不同协调轨迹的数值型关键特征比较（轨迹子组可重叠）', y=1.03, fontsize=15)
 fig.text(
-    0.5, -0.03,
-    '注：每个箱线图对应“该轨迹=1”的CIB子样本；同一视频可同时进入多个轨迹子组，因此此图为描述性比较而非互斥分组比较。',
+    0.5, -0.02,
+    '注：仅使用 query_failed=0 的 CIB 样本；每个箱线图对应“该轨迹=1”的CIB子样本；同一视频可同时进入多个轨迹子组。',
     ha='center',
     fontsize=11
 )
-fig.tight_layout()
-save_figure(fig, 'fig_45_trace_key_feature_boxplots.png')
 
+fig.tight_layout()
+save_figure(fig, 'fig_45_trace_numeric_key_feature_boxplots.png')
+
+
+# D. 二元型关键特征占比图：轨迹阳性子组可重叠
+binary_plot_rows = []
+
+for trace in trace_cols:
+    mask = cib_profile[trace] == 1
+
+    for var in trace_profile_binary_vars:
+        n_trace_positive = int(mask.sum())
+        n_feature_positive = int(cib_profile.loc[mask, var].sum())
+
+        binary_plot_rows.append({
+            'trace': trace,
+            'trace_label_cn': TRACE_LABELS_CN[trace],
+            'feature': var,
+            'feature_label_cn': VAR_LABELS_CN[var],
+            'n_trace_positive': n_trace_positive,
+            'n_feature_positive': n_feature_positive,
+            'share_positive': n_feature_positive / n_trace_positive if n_trace_positive > 0 else np.nan
+        })
+
+binary_plot_df = pd.DataFrame(binary_plot_rows)
+
+fig, axes = plt.subplots(1, len(trace_profile_binary_vars), figsize=(22, 5.5), sharey=True)
+
+if len(trace_profile_binary_vars) == 1:
+    axes = [axes]
+
+for ax, var in zip(axes, trace_profile_binary_vars):
+    plot_df = binary_plot_df.loc[binary_plot_df['feature'] == var].copy()
+    plot_df['trace_label_cn'] = pd.Categorical(
+        plot_df['trace_label_cn'],
+        categories=trace_order_cn,
+        ordered=True
+    )
+
+    sns.barplot(
+        data=plot_df,
+        x='share_positive',
+        y='trace_label_cn',
+        order=trace_order_cn,
+        palette=TRACE_PALETTE,
+        orient='h',
+        ax=ax
+    )
+
+    ax.set_title(VAR_LABELS_CN[var])
+    ax.set_xlabel('占比')
+    ax.set_ylabel('')
+    apply_ratio_formatter(ax, axis='x')
+    sns.despine(ax=ax)
+
+fig.suptitle('不同协调轨迹阳性子组的二元关键特征占比（轨迹子组可重叠）', y=1.04, fontsize=15)
+fig.text(
+    0.5, -0.02,
+    '注：仅使用 query_failed=0 的 CIB 样本；每个条形图对应“该轨迹=1”的CIB子样本；同一视频可同时进入多个轨迹子组。',
+    ha='center',
+    fontsize=11
+)
+
+fig.tight_layout()
+save_figure(fig, 'fig_45_trace_binary_key_feature_prevalence.png')
+
+# %%
 # %%
 # %%
 # === 12. Build result manifest ===
@@ -1378,12 +1706,14 @@ save_figure(fig, 'fig_45_trace_key_feature_boxplots.png')
 manifest = pd.DataFrame([
     ['table_41_sample_overview.csv', '4.1 数据样本规模概览'],
     ['table_41_sample_query_status.csv', '4.1 抽样样本中的创作者信息查询状态'],
+
     ['table_42_content_numeric_summary.csv', '4.2 内容数值特征分组描述统计'],
     ['table_42_content_numeric_tests.csv', '4.2 内容数值特征组间检验'],
     ['table_42_content_binary_summary.csv', '4.2 内容二元特征分组描述统计'],
     ['table_42_content_binary_tests.csv', '4.2 内容二元特征组间检验'],
     ['fig_42_content_numeric_boxplots.png', '4.2 内容数值特征箱线图（稀疏变量显示离群点）'],
     ['fig_42_content_binary_prevalence.png', '4.2 内容二元特征占比图（标签、域名与互动形式分面展示）'],
+
     ['table_43_publish_days_summary.csv', '4.3 发布时间距起点天数描述统计'],
     ['table_43_publish_days_tests.csv', '4.3 发布时间距起点天数组间检验'],
     ['table_43_publish_hour_distribution.csv', '4.3 发布时间小时分布'],
@@ -1392,6 +1722,7 @@ manifest = pd.DataFrame([
     ['fig_43_publish_hour_distribution.png', '4.3 发布时间小时分布图'],
     ['fig_43_publish_weekday_distribution.png', '4.3 发布时间星期分布图'],
     ['fig_43_publish_timeline_and_ecdf.png', '4.3 发布时间时间推进趋势与累计分布图'],
+
     ['table_44_query_failed_summary.csv', '4.4 创作者信息查询失败比例描述统计'],
     ['table_44_query_failed_tests.csv', '4.4 创作者信息查询失败比例组间检验'],
     ['table_44_valid_sample_overview.csv', '4.4 仅保留query_failed=0后的样本规模'],
@@ -1400,15 +1731,19 @@ manifest = pd.DataFrame([
     ['table_44_creator_binary_summary.csv', '4.4 创作者二元特征描述统计'],
     ['table_44_creator_binary_tests.csv', '4.4 创作者二元特征组间检验'],
     ['fig_44_creator_feature_comparison.png', '4.4 创作者特征比较图'],
+
     ['table_45_trace_prevalence.csv', '4.5 各协调轨迹在CIB中的出现频率'],
     ['table_45_trace_combinations.csv', '4.5 CIB内部轨迹组合分布'],
     ['table_45_trace_overlap_count.csv', '4.5 CIB内部轨迹重叠计数矩阵'],
     ['table_45_trace_overlap_jaccard.csv', '4.5 CIB内部轨迹Jaccard重叠矩阵'],
-    ['table_45_trace_profile_summary.csv', '4.5 不同轨迹阳性子组的特征画像描述统计'],
-    ['table_45_trace_profile_tests.csv', '4.5 不同轨迹阳性子组的特征画像检验'],
+    ['table_45_trace_profile_sample_overview.csv', '4.5 不同轨迹特征画像所用CIB样本概览'],
+    ['table_45_trace_key_feature_summary.csv', '4.5 各轨迹阳性子组的关键特征描述统计'],
+    ['table_45_trace_profile_summary.csv', '4.5 各轨迹阳性与阴性子组的关键特征均值/占比比较'],
+    ['table_45_trace_profile_tests.csv', '4.5 各轨迹阳性与阴性子组的关键特征统计检验'],
     ['fig_45_trace_overlap_heatmap.png', '4.5 CIB内部轨迹重叠热力图'],
-    ['fig_45_trace_profile_heatmap.png', '4.5 不同轨迹阳性子组的特征画像热力图'],
-    ['fig_45_trace_key_feature_boxplots.png', '4.5 不同轨迹阳性子组的关键特征箱线图']
+    ['fig_45_trace_feature_effect_heatmap.png', '4.5 不同协调轨迹对应关键特征效应量热力图'],
+    ['fig_45_trace_numeric_key_feature_boxplots.png', '4.5 不同协调轨迹阳性子组的数值型关键特征箱线图'],
+    ['fig_45_trace_binary_key_feature_prevalence.png', '4.5 不同协调轨迹阳性子组的二元关键特征占比图']
 ], columns=['filename', 'description'])
 
 save_csv(manifest, 'result_manifest_rq1.csv', index=False)
