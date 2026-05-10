@@ -132,27 +132,27 @@ for col in ['if_cib'] + trace_cols:
     data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0).astype(int)
 
 METRIC_LABELS_CN = {
-    'view_count': '播放量',
+    'view_count': '观看量',
     'like_count': '点赞量',
     'comment_count': '评论量',
     'share_count': '分享量',
     'interaction_count': '互动总量',
-    'log1p_view_count': 'ln(1+播放量)',
-    'log1p_like_count': 'ln(1+点赞量)',
-    'log1p_comment_count': 'ln(1+评论量)',
-    'log1p_share_count': 'ln(1+分享量)',
-    'log1p_interaction_count': 'ln(1+互动总量)',
+    'log1p_view_count': '对数变换后的观看量',
+    'log1p_like_count': '对数变换后的点赞量',
+    'log1p_comment_count': '对数变换后的评论量',
+    'log1p_share_count': '对数变换后的分享量',
+    'log1p_interaction_count': '对数变换后的互动总量',
     'interaction_rate': '互动率',
     'share_rate': '分享率',
-    'share_share': '分享占互动比'
+    'share_share': '分享在互动中的占比'
 }
 
 TRACE_LABELS_CN = {
-    'co_hashtagseq': '话题标签序列一致',
-    'co_domain': '外链域名共现',
-    'text_similarity': '语音内容相似',
-    'video_similarity': '视频内容相似',
-    'time_synchronization': '发帖时间同步'
+    'co_hashtagseq': '属于话题标签序列一致',
+    'co_domain': '属于外链域名共现',
+    'text_similarity': '属于语音内容相似',
+    'video_similarity': '属于视频内容相似',
+    'time_synchronization': '属于发帖时间同步'
 }
 
 GROUP_LABELS_CN = {
