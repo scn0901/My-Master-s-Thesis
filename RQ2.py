@@ -368,7 +368,7 @@ for ax, metric in zip(axes, key_metrics):
     ax.legend(frameon=False)
     sns.despine(ax=ax)
 
-fig.suptitle('传播效果关键指标的总体分布', y=1.03, fontsize=15)
+fig.suptitle('传播影响力关键指标的总体分布', y=1.03, fontsize=15)
 fig.tight_layout()
 
 save_figure(fig, 'fig_51_overall_distribution_key_metrics.png')
@@ -503,7 +503,7 @@ for ax, metric in zip(axes, key_metrics):
 
     sns.despine(ax=ax)
 
-fig.suptitle('CIB 与非 CIB 在关键传播指标上的差异', y=1.03, fontsize=15)
+fig.suptitle('CIB 与非 CIB 在关键传播影响力指标上的差异', y=1.03, fontsize=15)
 fig.tight_layout()
 
 save_figure(fig, 'fig_52_cib_vs_noncib_boxplot_key_metrics.png')
@@ -553,7 +553,7 @@ for i, (ax, metric) in enumerate(zip(axes, key_metrics)):
 
     sns.despine(ax=ax)
 
-fig.suptitle('CIB 与非 CIB 的关键传播指标分布差异', y=1.03, fontsize=15)
+fig.suptitle('CIB 与非 CIB 的关键传播影响力指标分布差异', y=1.03, fontsize=15)
 fig.tight_layout()
 
 save_figure(fig, 'fig_52_cib_vs_noncib_ecdf_key_metrics.png')
@@ -786,8 +786,8 @@ sns.heatmap(
     ax=ax
 )
 
-ax.set_title('不同协调轨迹对应的关键传播指标差异（仅在CIB内部比较）')
-ax.set_xlabel('传播效果指标')
+ax.set_title('不同协调轨迹对应的关键传播影响力指标差异（仅在CIB内部比较）')
+ax.set_xlabel('传播影响力指标')
 ax.set_ylabel('协调轨迹')
 
 fig.tight_layout()
@@ -830,7 +830,7 @@ for ax, metric in zip(axes, key_metrics):
 
     sns.despine(ax=ax)
 
-fig.suptitle('不同协调轨迹的关键传播指标比较（轨迹子组可重叠）', y=1.04, fontsize=15)
+fig.suptitle('不同协调轨迹的关键传播影响力指标比较（轨迹子组可重叠）', y=1.04, fontsize=15)
 fig.text(
     0.5, -0.02,
     '注：每个箱线图对应“该轨迹=1”的 CIB 子样本；同一视频可同时进入多个子组，因此此图为描述性比较而非互斥分组比较。',
